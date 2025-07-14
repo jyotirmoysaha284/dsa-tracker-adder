@@ -2,20 +2,16 @@ import gspread
 import requests
 from oauth2client.service_account import ServiceAccountCredentials
 import json # Required for Gemini API payload
-from datetime import datetime, timedelta
 import os # New import for environment variables
-from dotenv import load_dotenv # New import for loading .env file
+from datetime import datetime, timedelta
 
-# Load environment variables from .env file
-load_dotenv()
 
-# --- Configuration ---
-# Path to your service account key file (downloaded from Google Cloud)
-# This path is constructed using the filename from .env and the project directory
-SERVICE_ACCOUNT_KEY_FILENAME = os.getenv('SERVICE_ACCOUNT_KEY_FILENAME')
-# Construct the full path to your service account key file
-# Assuming it's in a 'secrets' subdirectory within your project
-SERVICE_ACCOUNT_KEY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'secrets', SERVICE_ACCOUNT_KEY_FILENAME)
+# --- Google Sheets Configuration ---
+# Retrieve JSON key content from environment variable
+SERVICE_ACCOUNT_KEY_JSON = os.environ.get('SERVICE_ACCOUNT_KEY_JSON')
+
+# We will write this to a temporary file at runtime
+TEMP_KEY_FILE_PATH = 'temp_service_account_key.json'
 
 # Google Sheet Name (as it appears in your Google Drive)
 SPREADSHEET_NAME = 'Master DSA Sheet'
@@ -25,7 +21,7 @@ WORKSHEET_NAME = 'Sheet1'  # Change if your sheet name is different, e.g., 'Prob
 
 # --- Gemini API Configuration ---
 # Your Gemini API Key, loaded from environment variables
-API_KEY = os.getenv('GEMINI_API_KEY')
+API_KEY = os.environ.get('GEMINI_API_KEY')
 # The Gemini model to use. User requested 'gemini-1.5-flash'.
 GEMINI_MODEL = 'gemini-1.5-flash'
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={API_KEY}"
@@ -191,22 +187,37 @@ def process_input_file(worksheet): # worksheet is now passed as an argument
         print(f"An error occurred while processing the input file: {e}")
 
 def main():
+    print("Starting DSA Tracker Adder script on Heroku...")
+
+    # --- Write the service account key JSON to a temporary file ---
+    if not SERVICE_ACCOUNT_KEY_JSON:
+        print("Error: SERVICE_ACCOUNT_KEY_JSON environment variable not set.")
+        return "Error: Service account key not configured.", 500
+
+    try:
+        with open(TEMP_KEY_FILE_PATH, 'w') as f:
+            json.dump(json.loads(SERVICE_ACCOUNT_KEY_JSON), f)
+        print(f"Temporary service account key file created at {TEMP_KEY_FILE_PATH}")
+    except Exception as e:
+        print(f"Error creating temporary key file: {e}")
+        return f"Error: Could not create temporary key file: {e}", 500
+
     # Authenticate with Google Sheets ONCE
     # Authenticate with Google Sheets
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
     try:
-        if not os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
-            print(f"Error: Service account key file not found at '{SERVICE_ACCOUNT_KEY_PATH}'.")
+        if not os.path.exists(TEMP_KEY_FILE_PATH):
+            print(f"Error: Service account key file not found at '{TEMP_KEY_FILE_PATH}'.")
             print("Please ensure the file is uploaded and the path in .env is correct.")
             return
 
         # Use gspread.service_account for authentication
-        creds = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_KEY_PATH, scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(TEMP_KEY_FILE_PATH, scope)
         client = gspread.authorize(creds)
 
     except Exception as e:
-        print(f"Error during Google Sheets authentication. Make sure '{SERVICE_ACCOUNT_KEY_PATH}' is correct and accessible.")
+        print(f"Error during Google Sheets authentication. Make sure '{TEMP_KEY_FILE_PATH}' is correct and accessible.")
         print(f"Details: {e}")
         return
 
