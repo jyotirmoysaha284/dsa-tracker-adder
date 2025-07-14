@@ -14,10 +14,10 @@ SERVICE_ACCOUNT_KEY_JSON = os.environ.get('SERVICE_ACCOUNT_KEY_JSON')
 TEMP_KEY_FILE_PATH = 'temp_service_account_key.json'
 
 # Google Sheet Name (as it appears in your Google Drive)
-SPREADSHEET_NAME = 'Master DSA Sheet'
+SPREADSHEET_NAME = os.environ.get('SPREADSHEET_NAME', 'Master DSA Sheet')
 
 # The specific sheet (tab) name within your spreadsheet
-WORKSHEET_NAME = 'Sheet1'  # Change if your sheet name is different, e.g., 'Problems'
+WORKSHEET_NAME = os.environ.get('WORKSHEET_NAME', 'Sheet1')   # Change if your sheet name is different, e.g., 'Problems'
 
 # --- Gemini API Configuration ---
 # Your Gemini API Key, loaded from environment variables
