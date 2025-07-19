@@ -1,1 +1,1 @@
-release: python automate_tracker.py
+web: python automate_tracker.py
